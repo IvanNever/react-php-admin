@@ -3,6 +3,8 @@ import axios from 'axios';
 import React, {Component} from 'react';
 import DOMHelper from '../../helpers/domHelper';
 import EditorText from '../editor-text';
+import UIkit from 'uikit';
+import Spinner from '../spinner';
 
 export default class Editor extends Component {
     constructor() {
@@ -12,10 +14,13 @@ export default class Editor extends Component {
 
         this.state = {
             pageList: [],
-            newPageName: ''
+            newPageName: '',
+            loading: true
         }
 
         this.createNewPage = this.createNewPage.bind(this);
+        this.isLoading = this.isLoading.bind(this);
+        this.isLoaded = this.isLoaded.bind(this);
     }
 
     componentDidMount() {
@@ -24,11 +29,11 @@ export default class Editor extends Component {
 
     init(page) {
         this.iframe = document.querySelector('iframe');
-        this.open(page);
+        this.open(page, this.isLoaded);
         this.loadPageList();
     }
 
-    open(page) {
+    open(page, loadStatus) {
         this.currentPage = page;
         axios
             .get(`../${page}?rnd=${Math.random()}`)
@@ -43,9 +48,11 @@ export default class Editor extends Component {
             .then(() => this.iframe.load('../temp.html'))
             .then(() => this.enableEditing())
             .then(() => this.injectStyles())
+            .then(loadStatus)
     }
 
-    save() {
+    save(onSuccess, onError) {
+        this.isLoading();
         const newDOM = this.virtualDom.cloneNode(this.virtualDom);
         DOMHelper.unwrapTextNodes(newDOM);
         const html = DOMHelper.serializeDOMToStr(newDOM);
@@ -54,7 +61,9 @@ export default class Editor extends Component {
                 pageName: this.currentPage,
                 html
             })
-
+            .then(onSuccess)
+            .catch(onError)
+            .finally(this.isLoaded)
     }
 
     enableEditing() {
@@ -106,33 +115,58 @@ export default class Editor extends Component {
             .catch(() => {alert('The page not exists!')});
     }
 
+    isLoading() {
+        this.setState({
+            loading: true
+        })
+    }
+
+    isLoaded() {
+        this.setState({
+            loading: false
+        })
+    }
+
+
     render() {
-        // const {pageList} = this.state;
-        // const pages = pageList.map((page, i) => {
-        //     return(
-        //     <h1 key={i}>{page}
-        //         <a
-        //             href="#"
-        //             onClick={() => {this.deletePage(page)}}>
-        //                 (x)
-        //         </a>
-        //     </h1>
-        //     )
-        // });
+        const {loading} = this.state;
+        const modal = true;
+        let spinner;
+
+        loading ? spinner = <Spinner active/> : spinner = <Spinner/>
 
         return (
             <>
-                <button onClick={() => this.save()}>Click</button>
                 <iframe src={this.currentPage} frameBorder="0"></iframe>
-            </>
 
-            // <>
-            //     <input
-            //         onChange={(e) => {this.setState({'newPageName': e.target.value})}}
-            //         type="text"/>
-            //     <button onClick={this.createNewPage}>Add new page</button>
-            //     {pages}
-            // </>
+                {spinner}
+
+                <div className="panel">
+                    <button className="uk-button uk-button-primary" uk-toggle="target: #modal-save">Опубликовать</button>
+                </div>
+
+                <div id="modal-save" uk-modal={modal.toString()}>
+                    <div className="uk-modal-dialog uk-modal-body">
+                        <h2 className="uk-modal-title">Сохранение</h2>
+                        <p>Вы действительно хотите сохранить внесенные изменения</p>
+                        <p className="uk-text-right">
+                            <button className="uk-button uk-button-default uk-modal-close" type="button">Отменить</button>
+                            <button
+                                className="uk-button uk-button-primary uk-modal-close"
+                                type="button"
+                                onClick={() => this.save(() => {
+                                    UIkit.notification({message: 'Успешно сохранено', status: 'success'})
+                                },
+                                () => {
+                                    UIkit.notification({message: 'Ошибка', status: 'danger'})
+                                }
+                                )}>
+                                    Опубликовать
+                            </button>
+                        </p>
+                    </div>
+                </div>
+            </>
         )
     }
 }
