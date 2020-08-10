@@ -1,8 +1,6 @@
 <?php
 
-$_POST = json_decode(file_get_contents("php://input"), true);
-
-$file = "../../" . $_POST["name"];
+$file = "../../abo56_gfdf.html";
 
 if (file_exists($file)) {
     unlink($file);
