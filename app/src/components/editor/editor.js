@@ -27,9 +27,9 @@ export default class Editor extends Component {
     }
 
     open(page) {
-        this.currentPage = `../${page}?rnd=${Math.random()}`;
+        this.currentPage = page;
         axios
-            .get(`../${page}`)
+            .get(`../${page}?rnd=${Math.random()}`)
             .then(res => this.parseStrToDOM(res.data))
             .then(this.wrapTextNodes)
             .then(dom => {
@@ -40,6 +40,18 @@ export default class Editor extends Component {
             .then(html => axios.post('./api/saveTempPage.php', {html}))
             .then(() => this.iframe.load('../temp.html'))
             .then(() => this.enableEditing())
+    }
+
+    save() {
+        const newDOM = this.virtualDom.cloneNode(this.virtualDom);
+        this.unwrapTextNodes(newDOM);
+        const html = this.serializeDOMToStr(newDOM);
+        axios
+            .post('./api/savePage.php', {
+                pageName: this.currentPage,
+                html
+            })
+            
     }
 
     enableEditing() {
@@ -53,7 +65,7 @@ export default class Editor extends Component {
 
     onTextEdit(element) {
         const id = element.getAttribute('nodeid');
-        this.virtualDom.body.querySelector(`[nodeid="${id}"]`).innerHtml = element.innerHtml;
+        this.virtualDom.body.querySelector(`[nodeid="${id}"]`).innerHTML = element.innerHTML;
     }
 
     parseStrToDOM(str) {
@@ -90,6 +102,12 @@ export default class Editor extends Component {
     serializeDOMToStr(dom) {
         const serializer = new XMLSerializer();
         return serializer.serializeToString(dom);
+    }
+
+    unwrapTextNodes(dom) {
+        dom.body.querySelectorAll('text-editor').forEach(element => {
+            element.parentNode.replaceChild(element.firstChild, element);
+        });
     }
 
     loadPageList() {
@@ -131,7 +149,11 @@ export default class Editor extends Component {
         // });
 
         return (
-            <iframe src={this.currentPage} frameBorder="0"></iframe>
+            <>
+                <button onClick={() => this.save()}>Click</button>
+                <iframe src={this.currentPage} frameBorder="0"></iframe>
+            </>
+
             // <>
             //     <input
             //         onChange={(e) => {this.setState({'newPageName': e.target.value})}}
